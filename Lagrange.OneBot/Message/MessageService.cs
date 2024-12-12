@@ -60,7 +60,18 @@ public sealed class MessageService
                 else _entityToFactory[attribute.Entity] = [(attribute.Type, instance)];
             }
         }
-    }
+
+        var interval = config.GetValue<int>("Message:DeleteInterval", 60);
+        var expired = config.GetValue<int>("Message:ExpiredTime", 3600);
+        var enable = config.GetValue<bool>("Message:EnableDelete", true);
+        if (enable) {
+            bot.Scheduler.Interval("MessageService.Delete", interval * 1000, () => {
+                var expiredDateTime = DateTime.Now.AddSeconds(-expired);
+                var deletedCount = _context.GetCollection<MessageRecord>().DeleteMany(x => x.Time < expiredDateTime);
+                bot.ContextCollection.Log.LogInfo("MessageService", $"Deleted {deletedCount} expired messages which are older than {expiredDateTime}");
+            });
+        }
+   }
 
     private void OnFriendMessageReceived(BotContext bot, FriendMessageEvent e)
     {
